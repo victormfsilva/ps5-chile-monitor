@@ -110,7 +110,11 @@ def main():
         return
 
     st = json.load(open(monitor.STATE, encoding="utf-8"))
-    st["heartbeat_local"] = datetime.now(monitor.HORA_CHILE).isoformat(timespec="minutes")
+    completo = all(st.get("falhas", {}).get(f"{n}@pc", 1) == 0 for n in ("SoloTodo", "Knasta"))
+    if completo:  # só "assume" se leu as 2 fontes; senão a nuvem continua rodando junto
+        st["heartbeat_local"] = datetime.now(monitor.HORA_CHILE).isoformat(timespec="minutes")
+    else:
+        log("rede bloqueou alguma fonte — a nuvem continua rodando junto (memória compartilhada)")
     monitor.save(st)
     git("add", "state.json")
     git("-c", "user.name=monitor-ps5-pc", "-c", "user.email=victormfsilva@users.noreply.github.com",

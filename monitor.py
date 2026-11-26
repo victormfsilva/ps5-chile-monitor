@@ -23,6 +23,7 @@ import re
 import sys
 import time
 import unicodedata
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -83,7 +84,8 @@ RE_ACESSORIO = re.compile(
     r"cargador|estacion de carga|lente|laser|repuestos?|bolso|mochila|funda|estuche|maleta|ventilador|"
     r"refrigeracion|cooler|volante|pedales|audifonos|headset|microfono|camara|grips?|cable|hdmi|"
     r"ps ?4|ps ?2|ps ?3|reacondicionad[oa]|refurbished|usad[oa]|seminuev[oa]|open ?box|caja vacia|solo caja|"
-    r"sin consola|gift ?card|tarjeta psn|psn|membresia|suscripcion|accesorios?|kit de|joystick|mando)\b"
+    r"sin consola|gift ?card|tarjeta psn|psn|membresia|suscripcion|accesorios?|kit de|joystick|mando|"
+    r"caja abierta|exhibicion|segunda mano|replica|generica|arriendo)\b"
 )
 RE_PARA = re.compile(r"\b(para|compatible con|compatible)\b (la |el |tu )?(consola|ps ?5|playstation)")
 RE_COMECA_ACESSORIO = re.compile(r"^\W*(control|dualsense|lector|unidad|disc drive|juego|videojuego|accesorio)\b")
@@ -99,7 +101,8 @@ def classificar_texto(titulo, cfg):
     if RE_COMECA_ACESSORIO.search(t) or RE_PARA.search(t) or RE_JOGO.search(re.sub(r"\+.*$", "", t)):
         return None
     # "+ 2 juegos" e "+ control" são bundle; o resto da lista de acessórios derruba
-    if RE_ACESSORIO.search(re.sub(r"\+.*$", "", t)) or re.search(r"\b(usad|reacondicionad|caja vacia|sin consola)", t):
+    if RE_ACESSORIO.search(re.sub(r"\+.*$", "", t)) or re.search(
+            r"\b(usad|reacondicionad|caja vacia|caja abierta|sin consola|segunda mano|exhibicion)", t):
         return None
     if RE_PRO.search(t):
         return ("pro", False) if cfg.get("incluir_pro") else None
@@ -259,11 +262,11 @@ def fonte_rata(cfg):
             f"{base}/oferta/{o['id']}/{o['slug']}", com_cupom=bool(o.get("cupon")),
         ))
     cupons = []
-    lojas_alvo = [chave_loja(x) for x in cfg.get("lojas_cupom", [])]
+    lojas_alvo = [re.compile(rf"\b{re.escape(norm(x))}\b") for x in cfg.get("lojas_cupom", [])]
     for c in baixar(f"{base}/api/v1/cupones/?limit=200")["results"]:
         loja = (c.get("tienda") or {}).get("nombre") or ""
         texto = norm(c.get("nombre", "") + " " + loja)
-        relevante = any(k in chave_loja(texto) for k in lojas_alvo) or re.search(
+        relevante = any(r.search(texto) for r in lojas_alvo) or re.search(
             r"tecnolog|electro|gamer|consola|videojuego|playstation|ps5", texto)
         if relevante:
             cupons.append({
@@ -283,7 +286,7 @@ def eh_marketplace(o):
 
 
 def linha(o, cupons_por_loja=None):
-    txt = f"<b>{clp(o['preco'])}</b> · {html.escape(o['loja'])}"
+    txt = f"<b>{clp(o['preco']) if o['preco'] else 'preço no post'}</b> · {html.escape(o['loja'])}"
     if o.get("cartao") and o["cartao"] == o["preco"] and o["normal"] > o["preco"]:
         txt += f" <i>(com cartão da loja; sem cartão {clp(o['normal'])})</i>"
     elif o["normal"] > o["preco"]:
@@ -321,56 +324,82 @@ def nome_familia(k):
 
 # ------------------------------------------------------------ confirmação
 
-def cruzar(ofertas):
-    """Mesmo anúncio no SoloTodo e no Knasta: se discordam, vale o preço MAIS ALTO (seguro)."""
+def cruzar(ofertas, agora):
+    """Mesmo anúncio no SoloTodo e no Knasta. Se discordam, vale a leitura MAIS NOVA:
+    SoloTodo lido há ≤1h30 -> SoloTodo; SoloTodo velho (>3h) e Knasta de hoje -> Knasta;
+    na dúvida, o preço MAIS ALTO (seguro)."""
     idx = {}
     for o in ofertas:
         for t in o.get("ids", ()):
             idx.setdefault((o.get("loja_key"), t), []).append(o)
+    hoje = agora.strftime("%d-%m-%Y")
     for o in ofertas:
-        outros = {id(x): x for t in o.get("ids", ()) for x in idx.get((o.get("loja_key"), t), [])
-                  if x["fonte"] != o["fonte"]}
+        outros = [x for x in {id(x): x for t in o.get("ids", ()) for x in idx.get((o.get("loja_key"), t), [])
+                              if x["fonte"] != o["fonte"]}.values()]
         if not outros:
             continue
-        alt = max(x["preco"] for x in outros.values())
-        if abs(alt - o["preco"]) <= o["preco"] * 0.01:
+        x = outros[0]
+        st, kn = (o, x) if o["fonte"] == "solotodo" else (x, o)
+        p_st, p_kn = st.get("preco_lido") or st["preco"], kn.get("preco_lido") or kn["preco"]
+        if abs(p_st - p_kn) <= p_st * 0.01:
             o["confirmacao"] = "✔️ SoloTodo e Knasta mostram o mesmo preço"
-        elif alt > o["preco"]:
-            o["preco_lido"], o["preco"] = o["preco"], alt
-            o["confirmacao"] = f"⚠️ comparadores discordavam ({clp(o['preco_lido'])} x {clp(alt)}) — usei o mais alto"
+            continue
+        h = idade_h(st, agora)
+        if h is not None and h <= 1.5:
+            certo, motivo = p_st, f"SoloTodo leu há {max(1, int(h * 60))} min"
+        elif (h is None or h > 3) and kn.get("dia") == hoje:
+            certo, motivo = p_kn, "Knasta tem a leitura mais nova"
+        else:
+            certo, motivo = max(p_st, p_kn), "na dúvida, usei o mais alto"
+        if o["preco"] != certo:
+            o["preco_lido"], o["preco"] = o.get("preco_lido") or o["preco"], certo
+        o["confirmacao"] = (f"⚠️ comparadores discordam (SoloTodo {clp(p_st)} x Knasta {clp(p_kn)})"
+                            f" — {motivo}")
 
 
 def precos_da_pagina(url):
-    """Lê o preço direto na página da loja (melhor esforço: várias lojas bloqueiam robôs)."""
+    """Lê preço e ESTOQUE direto na página da loja (melhor esforço: várias lojas bloqueiam robôs).
+    Retorna (lista_de_precos, esgotado).
+    Usa SÓ o produto principal (1º "Product" do JSON-LD), para não pegar preço/estoque de
+    produtos relacionados do carrossel."""
     try:
         s = baixar(url, json_=False, tentativas=1, cache_bust=False)
     except Exception:  # noqa: BLE001
-        return []
-    m = re.search(r'"currentPrice"\s*:\s*\{\s*"price"\s*:\s*(\d+)', s)  # Lider/Walmart
-    if m:
-        return [int(m.group(1))]
-    out = []
+        return [], False
+    produto = None
     for bloco in re.findall(r"<script[^>]*application/ld\+json[^>]*>(.*?)</script>", s, re.S):
         try:
             pilha = [json.loads(bloco.strip())]
         except Exception:  # noqa: BLE001
             continue
-        while pilha:
-            x = pilha.pop()
+        while pilha and produto is None:
+            x = pilha.pop(0)
             if isinstance(x, list):
-                pilha += x
+                pilha = x + pilha
             elif isinstance(x, dict):
-                if x.get("@type") in ("Offer", "AggregateOffer"):
-                    for k in ("price", "lowPrice"):
-                        v = preco_int(x.get(k))
-                        if v and v > 1000:
-                            out.append(v)
-                pilha += [v for v in x.values() if isinstance(v, (dict, list))]
-    if not out:
-        m = re.search(r'(?:product:price:amount|itemprop="price")"?\s+content="([\d.]+)"', s)
-        if m:
-            out.append(int(float(m.group(1))))
-    return out
+                tipo = x.get("@type")
+                if tipo == "Product" or (isinstance(tipo, list) and "Product" in tipo):
+                    produto = x
+                elif "@graph" in x:
+                    pilha = list(x["@graph"]) + pilha
+        if produto:
+            break
+    if not produto:
+        return [], False
+    ofertas = produto.get("offers") or []
+    ofertas = ofertas if isinstance(ofertas, list) else [ofertas]
+    precos, disp = [], []
+    for of in ofertas:
+        if not isinstance(of, dict):
+            continue
+        for k in ("price", "lowPrice"):
+            v = preco_int(of.get(k))
+            if v and v > 1000:
+                precos.append(v)
+        if of.get("availability"):
+            disp.append(str(of["availability"]).rsplit("/", 1)[-1])
+    esgotado = bool(disp) and all(d in ("OutOfStock", "SoldOut", "Discontinued") for d in disp)
+    return precos, esgotado
 
 
 def idade_h(o, agora):
@@ -385,13 +414,18 @@ def idade_h(o, agora):
 def confirmar(o, state, agora):
     cache = state.setdefault("verif", {})
     c = cache.get(o["url"])
-    if c and c[0] >= (agora - timedelta(minutes=20)).isoformat(timespec="minutes"):
-        lista = c[1]
+    if c and len(c) == 3 and c[0] >= (agora - timedelta(minutes=20)).isoformat(timespec="minutes"):
+        lista, esgotado = c[1], c[2]
     else:
-        lista = precos_da_pagina(o["url"])
-        cache[o["url"]] = [agora.isoformat(timespec="minutes"), lista]
+        lista, esgotado = precos_da_pagina(o["url"])
+        cache[o["url"]] = [agora.isoformat(timespec="minutes"), lista, esgotado]
+    if esgotado:
+        o["esgotado"] = True
+        o["confirmacao"] = f"❌ ESGOTADO na página da loja às {agora:%H:%M}"
+        return
+    alvo = o.get("preco_lido") or o["preco"]
+    lista = [x for x in lista if 0.6 * alvo <= x <= 1.6 * alvo]  # descarta valor absurdo
     if lista:
-        alvo = o.get("preco_lido") or o["preco"]
         o["preco"] = alvo if any(abs(x - alvo) <= alvo * 0.01 for x in lista) else min(lista)
         o["confirmacao"] = f"✔️ conferido na página da loja às {agora:%H:%M}"
         return
@@ -445,14 +479,18 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
 
     def encerrar(o, anterior):
         alertados.pop(o["id"], None)
-        alertas.append(f"❌ OFERTA ENCERRADA / CORRIGIDA — agora está <b>{clp(o['preco'])}</b>\n"
+        pref = f"{chave_loja(o['loja'])}|{chave_familia(o)}|"
+        for k in [k for k in enviados if k.startswith(pref)]:
+            enviados.pop(k)  # se a oferta voltar de verdade (ex.: reposição), avisa de novo
+        motivo = "ESGOTOU na loja" if o.get("esgotado") else f"agora está <b>{clp(o['preco'])}</b>"
+        alertas.append(f"❌ OFERTA ENCERRADA — {motivo}\n"
                        f"{html.escape(o['produto'])} · {html.escape(o['loja'])}\n"
                        f"(o aviso anterior dizia {clp(anterior)}; {o.get('confirmacao') or 'preço atualizado'})\n"
                        f"<a href=\"{html.escape(o['url'])}\">👉 abrir</a>")
 
     vistos = set()
     ofertas = [o for o in ofertas if o["preco"] >= piso]
-    cruzar(ofertas)
+    cruzar(ofertas, agora)
     for o in ofertas:
         vistos.add(o["id"])
         bom, otimo = limites(cfg, o["familia"], o["controle"])
@@ -466,22 +504,23 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
             alertados.pop(o["id"], None)  # se cair de novo, avisa de novo
             continue
         if anterior is not None and menor_lido >= anterior:  # já avisado e não caiu mais
-            if o["preco"] > bom:
+            confirmar(o, state, agora)  # a página da loja decide (cache de 20 min); vê estoque
+            if o.get("esgotado") or o["preco"] > bom:
                 encerrar(o, anterior)
             continue
         confirmar(o, state, agora)  # confere na página da loja / idade da leitura
-        if o["preco"] > bom:
+        if o.get("esgotado") or o["preco"] > bom or o["preco"] < piso:
             if anterior is not None:
                 encerrar(o, anterior)
             continue
         nao_confirmado = not o.get("confirmacao")
         if nao_confirmado and o["preco"] > otimo:
             continue  # sem confirmação, só avisa se for preço excelente
-        alertados[o["id"]] = o["preco"]
         if anterior is not None and o["preco"] >= anterior:
             continue
         if ja_enviado(o):
-            continue
+            continue  # já avisado antes: não marca de novo (evita "encerrada" repetido)
+        alertados[o["id"]] = o["preco"]
         if o["preco"] < erro:
             nivel = "🚨 POSSÍVEL ERRO DE PREÇO (corre, mas confira se é console novo e loja séria)"
         elif o["preco"] <= otimo:
@@ -506,7 +545,8 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
     def ordem(x):  # confiáveis pelo preço; sem nenhuma confiável, a leitura MAIS RECENTE (não a mais barata)
         return (0, x["preco"]) if confiavel(x, agora) else (1, idade_h(x, agora) or 99, x["preco"])
     for o in sorted(ofertas, key=ordem):
-        melhores.setdefault(chave_familia(o), o)
+        if not o.get("esgotado"):  # esgotado nunca aparece como "melhor preço"
+            melhores.setdefault(chave_familia(o), o)
     for k, o in melhores.items():
         if not confiavel(o, agora):
             continue
@@ -561,13 +601,47 @@ def enviar(textos):
         for t in textos:
             print(re.sub(r"<[^>]+>", "", html.unescape(t)), "\n" + "-" * 40)
         return
+    ok = falhou = 0
     for chat in chats:
         for t in textos:
-            dados = urllib.parse.urlencode({
-                "chat_id": chat, "text": t[:4000], "parse_mode": "HTML", "disable_web_page_preview": "true",
-            }).encode()
-            urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", dados, timeout=30)
-            time.sleep(0.4)
+            if _enviar_um(token, chat, t):
+                ok += 1
+            else:
+                falhou += 1
+            time.sleep(0.5)
+    if falhou and not ok:
+        # nada saiu (Telegram fora do ar/bloqueado): não grava a memória, tenta na próxima rodada
+        raise RuntimeError(f"Telegram não aceitou nenhuma das {falhou} mensagens")
+    if falhou:
+        print(f"[AVISO] {falhou} mensagem(ns) não foram entregues")
+
+
+def _enviar_um(token, chat, texto):
+    """Uma mensagem; se o HTML for recusado, manda como texto puro; respeita o limite (429)."""
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    tentativas = [{"text": texto[:3900], "parse_mode": "HTML"},
+                  {"text": re.sub(r"<[^>]+>", "", html.unescape(texto))[:3900]}]
+    for i, extra in enumerate(tentativas):
+        for _ in range(2):
+            dados = urllib.parse.urlencode({"chat_id": chat, "disable_web_page_preview": "true", **extra}).encode()
+            try:
+                urllib.request.urlopen(url, dados, timeout=30)
+                return True
+            except urllib.error.HTTPError as ex:
+                corpo = ex.read().decode("utf-8", "ignore")
+                if ex.code == 429:
+                    try:
+                        espera = json.loads(corpo)["parameters"]["retry_after"]
+                    except Exception:  # noqa: BLE001
+                        espera = 5
+                    time.sleep(min(int(espera) + 1, 40))
+                    continue
+                print(f"[Telegram {ex.code}] {corpo[:150]}")
+                break  # 400 (HTML inválido etc.): tenta a versão em texto puro
+            except Exception as ex:  # noqa: BLE001
+                print(f"[Telegram] {ex}")
+                return False  # rede: não adianta insistir agora
+    return False
 
 
 # -------------------------------------------------------------------- main
@@ -595,9 +669,12 @@ def main():
         print(f"PC do Victor está cuidando (sinal de vida {state['heartbeat_local']}) — nuvem pula esta rodada.")
         return
     falhas = state.setdefault("falhas", {})
+    onde = "nuvem" if os.environ.get("GITHUB_ACTIONS") else "pc"
     mensagens, ofertas, posts, cupons, ok = [], [], [], [], []
 
     for nome, fn in [("SoloTodo", fonte_solotodo), ("Knasta", fonte_knasta), ("Descuentos Rata", fonte_rata)]:
+        chave = f"{nome}@{onde}"  # contagem separada: Knasta é bloqueado só na nuvem
+        avisar = not (nome == "Knasta" and onde == "nuvem")  # bloqueio conhecido: não incomoda
         try:
             r = fn(cfg)
             if nome == "Descuentos Rata":
@@ -607,13 +684,13 @@ def main():
                     raise RuntimeError("nenhum PS5 encontrado (formato mudou?)")
                 ofertas += r
             ok.append(nome)
-            if falhas.get(nome, 0) >= 3:
+            if falhas.get(chave, 0) >= 3 and avisar:
                 mensagens.append(f"✅ Fonte {nome} voltou a funcionar.")
-            falhas[nome] = 0
+            falhas[chave] = 0
         except Exception as ex:  # noqa: BLE001
-            falhas[nome] = falhas.get(nome, 0) + 1
+            falhas[chave] = falhas.get(chave, 0) + 1
             print(f"[ERRO] {nome}: {ex}")
-            if falhas[nome] == 3:
+            if falhas[chave] == 3 and avisar:
                 mensagens.append(f"⚠️ A fonte {nome} falhou 3 vezes seguidas: {html.escape(str(ex)[:200])}\n"
                                  "As outras fontes continuam monitorando.")
     if not ofertas:
