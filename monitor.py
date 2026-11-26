@@ -429,6 +429,9 @@ def main():
     if "--teste" in sys.argv:
         enviar(["✅ Teste do monitor de PS5: se você está lendo isto, o Telegram está funcionando!"])
         return
+    if os.environ.get("GITHUB_ACTIONS") and not (os.environ.get("TELEGRAM_TOKEN") and os.environ.get("TELEGRAM_CHAT_IDS")):
+        print("Telegram ainda não configurado nos Secrets — pulando sem gravar estado.")
+        return
     cfg = json.load(open(CONFIG, encoding="utf-8"))
     state = json.load(open(STATE, encoding="utf-8")) if os.path.exists(STATE) else {}
     primeira_vez = "menor_por_familia" not in state
