@@ -203,7 +203,8 @@ def _knasta_pagina(q, cat, page):
     params = {"q": q, "page": page}
     if cat:
         params["category"] = cat
-    s = baixar("https://knasta.cl/results?" + urllib.parse.urlencode(params), json_=False)
+    s = baixar("https://knasta.cl/results?" + urllib.parse.urlencode(params), json_=False,
+               tentativas=1, cache_bust=False)  # se bloquear (403), desiste rápido sem insistir
     m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', s, re.S)
     if not m:
         raise RuntimeError("Knasta mudou o formato (sem __NEXT_DATA__)")
@@ -403,6 +404,17 @@ def confirmar(o, state, agora):
         o["confirmacao"] = "🕒 preço lido hoje (Knasta)"
 
 
+def confiavel(o, agora):
+    if o.get("confirmacao", "").startswith(("✔️", "🕒")):
+        return True
+    if o.get("preco_lido"):  # comparadores discordaram e ficou o mais alto: preço seguro
+        return True
+    if o["fonte"] == "knasta":
+        return o.get("dia") == agora.strftime("%d-%m-%Y")
+    h = idade_h(o, agora)
+    return h is not None and h <= 3
+
+
 def txt_idade(o):
     h = idade_h(o, datetime.now(HORA_CHILE))
     if h is None:
@@ -489,10 +501,15 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
     for k in [k for k in alertados if k not in vistos]:
         alertados.pop(k)
 
+    # resumo / menor preço: só leituras confiáveis (recentes ou confirmadas); velhas ficam por último
     melhores = {}
-    for o in sorted(ofertas, key=lambda x: x["preco"]):
+    def ordem(x):  # confiáveis pelo preço; sem nenhuma confiável, a leitura MAIS RECENTE (não a mais barata)
+        return (0, x["preco"]) if confiavel(x, agora) else (1, idade_h(x, agora) or 99, x["preco"])
+    for o in sorted(ofertas, key=ordem):
         melhores.setdefault(chave_familia(o), o)
     for k, o in melhores.items():
+        if not confiavel(o, agora):
+            continue
         antes = menores.get(k)
         bom, _ = limites(cfg, o["familia"], o["controle"])
         if antes is not None and o["preco"] < antes and (bom is None or o["preco"] > bom) and not ja_enviado(o):
