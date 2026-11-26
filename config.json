@@ -1,0 +1,13 @@
+{
+  "_comentario": "Precos em CLP (menor preco da loja, inclusive com cartao). 'bom' = vale a pena; 'otimo' = compra ja. Calibrado em 26/11/2026 com o historico do SoloTodo: Digital+2 jogos minimo 549.990 (ago e out/2026); Disco+2 jogos minimo 559.990-579.990.",
+  "familias": {
+    "digital": { "bom": 579990, "otimo": 549990 },
+    "disco":   { "bom": 619990, "otimo": 579990 }
+  },
+  "extra_controle": 60000,
+  "preco_minimo_valido": 150000,
+  "abaixo_disso_pode_ser_erro": 380000,
+  "incluir_pro": false,
+  "incluir_usados": false,
+  "lojas_cupom": ["Falabella", "Paris", "Ripley", "Lider", "Hites", "PC Factory", "Mercado Libre", "La Polar", "AbcDin", "Abc", "Sony", "Microplay", "Weplay", "SP Digital", "Zmart", "Tottus", "Jumbo", "Easy", "Claro", "Entel"]
+}
