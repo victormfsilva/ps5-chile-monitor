@@ -186,8 +186,17 @@ def fonte_solotodo(cfg):
                 "solotodo", e["id"], p["name"].replace("Sony PlayStation 5 ", "PS5 "), *tipo, loja,
                 preco, max(normal, sem_cupom or 0), e["external_url"],
                 cupom=cupom, sem_cupom=sem_cupom, vendedor=e.get("seller"),
+                lido_em=reg["timestamp"], loja_key=chave_loja(loja),
+                ids=ids_anuncio(e["external_url"], e.get("key"), e.get("sku")),
             ))
     return saida
+
+
+def ids_anuncio(url, *extras):
+    """Códigos que identificam o anúncio (SKU na URL etc.) para cruzar SoloTodo x Knasta."""
+    caminho = urllib.parse.urlparse(url or "").path
+    toks = {t.lower() for t in re.findall(r"[A-Za-z0-9]{6,}", caminho) if re.search(r"\d", t)}
+    return toks | {str(x).lower() for x in extras if x and len(str(x)) >= 5}
 
 
 def _knasta_pagina(q, cat, page):
@@ -222,6 +231,8 @@ def fonte_knasta(cfg):
                     min(x for x in (preco, cartao) if x), max(internet, preco), p["url"],
                     cartao=cartao, minimo_hist=preco_int(p.get("best_variation_price")),
                     minimo_hist_dia=p.get("best_variation_day"),
+                    loja_key=chave_loja(p["retail"]), ids=ids_anuncio(p["url"], p.get("product_id")),
+                    dia=p.get("current_day"),
                 ))
             if pag >= d.get("total_pages", 1):
                 break
@@ -290,6 +301,10 @@ def linha(o, cupons_por_loja=None):
         txt += f"\n🎟️ cupom ativo na loja: {html.escape(c['nome'][:90])}" + (f" — código <code>{html.escape(c['codigo'])}</code>" if c.get("codigo") else "")
     if eh_marketplace(o):
         txt += "\n⚠️ marketplace: confira a reputação do vendedor"
+    if o.get("confirmacao"):
+        txt += f"\n{o['confirmacao']}"
+    elif txt_idade(o):
+        txt += f"\n⚠️ não confirmado — {txt_idade(o)}"
     txt += f"\n<a href=\"{html.escape(o['url'])}\">👉 abrir</a> <i>({o['fonte']})</i>"
     return txt
 
@@ -301,6 +316,98 @@ def chave_familia(o):
 def nome_familia(k):
     base = {"digital": "PS5 Slim Digital", "disco": "PS5 Slim com disco", "pro": "PS5 Pro"}[k.split("+")[0]]
     return base + (" + controle extra" if "+controle" in k else "")
+
+
+# ------------------------------------------------------------ confirmação
+
+def cruzar(ofertas):
+    """Mesmo anúncio no SoloTodo e no Knasta: se discordam, vale o preço MAIS ALTO (seguro)."""
+    idx = {}
+    for o in ofertas:
+        for t in o.get("ids", ()):
+            idx.setdefault((o.get("loja_key"), t), []).append(o)
+    for o in ofertas:
+        outros = {id(x): x for t in o.get("ids", ()) for x in idx.get((o.get("loja_key"), t), [])
+                  if x["fonte"] != o["fonte"]}
+        if not outros:
+            continue
+        alt = max(x["preco"] for x in outros.values())
+        if abs(alt - o["preco"]) <= o["preco"] * 0.01:
+            o["confirmacao"] = "✔️ SoloTodo e Knasta mostram o mesmo preço"
+        elif alt > o["preco"]:
+            o["preco_lido"], o["preco"] = o["preco"], alt
+            o["confirmacao"] = f"⚠️ comparadores discordavam ({clp(o['preco_lido'])} x {clp(alt)}) — usei o mais alto"
+
+
+def precos_da_pagina(url):
+    """Lê o preço direto na página da loja (melhor esforço: várias lojas bloqueiam robôs)."""
+    try:
+        s = baixar(url, json_=False, tentativas=1, cache_bust=False)
+    except Exception:  # noqa: BLE001
+        return []
+    m = re.search(r'"currentPrice"\s*:\s*\{\s*"price"\s*:\s*(\d+)', s)  # Lider/Walmart
+    if m:
+        return [int(m.group(1))]
+    out = []
+    for bloco in re.findall(r"<script[^>]*application/ld\+json[^>]*>(.*?)</script>", s, re.S):
+        try:
+            pilha = [json.loads(bloco.strip())]
+        except Exception:  # noqa: BLE001
+            continue
+        while pilha:
+            x = pilha.pop()
+            if isinstance(x, list):
+                pilha += x
+            elif isinstance(x, dict):
+                if x.get("@type") in ("Offer", "AggregateOffer"):
+                    for k in ("price", "lowPrice"):
+                        v = preco_int(x.get(k))
+                        if v and v > 1000:
+                            out.append(v)
+                pilha += [v for v in x.values() if isinstance(v, (dict, list))]
+    if not out:
+        m = re.search(r'(?:product:price:amount|itemprop="price")"?\s+content="([\d.]+)"', s)
+        if m:
+            out.append(int(float(m.group(1))))
+    return out
+
+
+def idade_h(o, agora):
+    if not o.get("lido_em"):
+        return None
+    try:
+        return (agora - datetime.fromisoformat(o["lido_em"].replace("Z", "+00:00"))).total_seconds() / 3600
+    except ValueError:
+        return None
+
+
+def confirmar(o, state, agora):
+    cache = state.setdefault("verif", {})
+    c = cache.get(o["url"])
+    if c and c[0] >= (agora - timedelta(minutes=20)).isoformat(timespec="minutes"):
+        lista = c[1]
+    else:
+        lista = precos_da_pagina(o["url"])
+        cache[o["url"]] = [agora.isoformat(timespec="minutes"), lista]
+    if lista:
+        alvo = o.get("preco_lido") or o["preco"]
+        o["preco"] = alvo if any(abs(x - alvo) <= alvo * 0.01 for x in lista) else min(lista)
+        o["confirmacao"] = f"✔️ conferido na página da loja às {agora:%H:%M}"
+        return
+    if o.get("confirmacao"):
+        return
+    h = idade_h(o, agora)
+    if h is not None and h <= 2:
+        o["confirmacao"] = f"🕒 preço lido há {max(1, int(h * 60))} min"
+    elif o["fonte"] == "knasta" and o.get("dia") == agora.strftime("%d-%m-%Y"):
+        o["confirmacao"] = "🕒 preço lido hoje (Knasta)"
+
+
+def txt_idade(o):
+    h = idade_h(o, datetime.now(HORA_CHILE))
+    if h is None:
+        return ""
+    return f"lido há {int(h * 60)} min" if h < 1 else f"lido há {h:.0f}h"
 
 
 # ----------------------------------------------------------------- análise
@@ -324,15 +431,40 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
         enviados[k] = agora.isoformat(timespec="minutes")
         return False
 
+    def encerrar(o, anterior):
+        alertados.pop(o["id"], None)
+        alertas.append(f"❌ OFERTA ENCERRADA / CORRIGIDA — agora está <b>{clp(o['preco'])}</b>\n"
+                       f"{html.escape(o['produto'])} · {html.escape(o['loja'])}\n"
+                       f"(o aviso anterior dizia {clp(anterior)}; {o.get('confirmacao') or 'preço atualizado'})\n"
+                       f"<a href=\"{html.escape(o['url'])}\">👉 abrir</a>")
+
     vistos = set()
     ofertas = [o for o in ofertas if o["preco"] >= piso]
+    cruzar(ofertas)
     for o in ofertas:
         vistos.add(o["id"])
         bom, otimo = limites(cfg, o["familia"], o["controle"])
-        if bom is None or o["preco"] > bom:
-            alertados.pop(o["id"], None)  # voltou a subir: se cair de novo, avisa de novo
+        if bom is None:
             continue
         anterior = alertados.get(o["id"])
+        menor_lido = min(o["preco"], o.get("preco_lido") or o["preco"])
+        if menor_lido > bom:
+            if anterior is not None:
+                encerrar(o, anterior)
+            alertados.pop(o["id"], None)  # se cair de novo, avisa de novo
+            continue
+        if anterior is not None and menor_lido >= anterior:  # já avisado e não caiu mais
+            if o["preco"] > bom:
+                encerrar(o, anterior)
+            continue
+        confirmar(o, state, agora)  # confere na página da loja / idade da leitura
+        if o["preco"] > bom:
+            if anterior is not None:
+                encerrar(o, anterior)
+            continue
+        nao_confirmado = not o.get("confirmacao")
+        if nao_confirmado and o["preco"] > otimo:
+            continue  # sem confirmação, só avisa se for preço excelente
         alertados[o["id"]] = o["preco"]
         if anterior is not None and o["preco"] >= anterior:
             continue
@@ -346,7 +478,13 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
             nivel = "✅ VALE A PENA"
         if anterior:
             nivel += f" (caiu de {clp(anterior)})"
+        if nao_confirmado:
+            nivel = "⚠️ NÃO CONFIRMADO — " + nivel
         alertas.append(f"{nivel}\n{linha(o, cupons_por_loja)}")
+    verif = state.get("verif", {})
+    corte = (agora - timedelta(hours=1)).isoformat(timespec="minutes")
+    for k in [k for k, v in verif.items() if v[0] < corte]:
+        verif.pop(k)
 
     for k in [k for k in alertados if k not in vistos]:
         alertados.pop(k)
