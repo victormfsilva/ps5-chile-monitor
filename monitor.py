@@ -591,6 +591,9 @@ def main():
     state = json.load(open(STATE, encoding="utf-8")) if os.path.exists(STATE) else {}
     primeira_vez = "menor_por_familia" not in state
     agora = datetime.now(HORA_CHILE)
+    if os.environ.get("GITHUB_ACTIONS") and state.get("heartbeat_local", "") >= (agora - timedelta(minutes=11)).isoformat(timespec="minutes"):
+        print(f"PC do Victor está cuidando (sinal de vida {state['heartbeat_local']}) — nuvem pula esta rodada.")
+        return
     falhas = state.setdefault("falhas", {})
     mensagens, ofertas, posts, cupons, ok = [], [], [], [], []
 
