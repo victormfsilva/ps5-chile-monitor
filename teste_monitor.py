@@ -147,6 +147,13 @@ finally:
     m.urllib.request.urlopen = orig
     del os.environ["TELEGRAM_TOKEN"], os.environ["TELEGRAM_CHAT_IDS"]
 
+# 11c) 'Novo menor preço' só para o Digital (foco); disco só avisa na faixa boa
+s = {}
+rodada(s, [st(700000, 0.5, sku="d1", fam="digital"), st(760000, 0.5, sku="c1")])
+a, _ = rodada(s, [st(680000, 0.5, sku="d1", fam="digital"), st(740000, 0.5, sku="c1")],
+              agora=AGORA + timedelta(minutes=5))
+checa("11c novo menor: só Digital", len(a) == 1 and "Digital" in a[0], a)
+
 # 12) Filtro de título
 casos = {
     "Consola PS5 Slim Digital Caja Abierta": None,

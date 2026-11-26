@@ -5,6 +5,8 @@
     "disco":   { "bom": 619990, "otimo": 579990 }
   },
   "extra_controle": 60000,
+  "_novo_menor": "familias que recebem o aviso 'novo menor preco' mesmo acima da faixa (foco do Victor: Digital)",
+  "novo_menor_familias": ["digital", "digital+controle"],
   "preco_minimo_valido": 150000,
   "abaixo_disso_pode_ser_erro": 380000,
   "incluir_pro": false,

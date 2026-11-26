@@ -552,7 +552,9 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
             continue
         antes = menores.get(k)
         bom, _ = limites(cfg, o["familia"], o["controle"])
-        if antes is not None and o["preco"] < antes and (bom is None or o["preco"] > bom) and not ja_enviado(o):
+        quer_aviso = k in cfg.get("novo_menor_familias", [k])
+        if (quer_aviso and antes is not None and o["preco"] < antes and (bom is None or o["preco"] > bom)
+                and not ja_enviado(o)):
             alertas.append(f"🔻 NOVO MENOR PREÇO — {nome_familia(k)} (antes {clp(antes)})\n{linha(o, cupons_por_loja)}")
         if antes is None or o["preco"] < antes:
             menores[k] = o["preco"]
