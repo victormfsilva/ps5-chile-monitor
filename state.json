@@ -1,19 +1,21 @@
 {
- "alertados": {
-  "solotodo:2393700": 599990
+ "alertados": {},
+ "cupons_vistos": {
+  "cupom:1456": "2027-01-01 00:00"
  },
- "cupons_vistos": {},
  "enviados": {
-  "lider|disco|599990": "2026-11-26T19:10-03:00"
+  "lider|disco|599990": "2026-11-26T19:10-03:00",
+  "paris|digital+controle|719990": "2026-11-26T19:35-03:00"
  },
  "falhas": {
   "Descuentos Rata": 0,
-  "Knasta": 2,
+  "Knasta": 0,
   "SoloTodo": 0
  },
+ "heartbeat_local": "2026-11-26T19:37-03:00",
  "menor_por_familia": {
   "digital": 619990,
-  "digital+controle": 727009,
+  "digital+controle": 719990,
   "disco": 599990,
   "disco+controle": 797019
  },
