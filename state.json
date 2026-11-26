@@ -8,9 +8,14 @@
  },
  "falhas": {
   "Descuentos Rata": 0,
-  "Knasta": 0,
+  "Knasta": 1,
   "SoloTodo": 0
  },
- "menor_por_familia": {},
- "ultimo_resumo": ""
+ "menor_por_familia": {
+  "digital": 619990,
+  "digital+controle": 727009,
+  "disco": 599990,
+  "disco+controle": 797019
+ },
+ "ultimo_resumo": "2026-11-26"
 }
