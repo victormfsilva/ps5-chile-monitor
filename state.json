@@ -1,5 +1,7 @@
 {
- "alertados": {},
+ "alertados": {
+  "solotodo:2393700": 599990
+ },
  "cupons_vistos": {
   "cupom:1456": "2027-01-01 00:00"
  },
@@ -12,7 +14,7 @@
   "Knasta": 0,
   "SoloTodo": 0
  },
- "heartbeat_local": "2026-11-26T19:45-03:00",
+ "heartbeat_local": "2026-11-26T19:49-03:00",
  "menor_por_familia": {
   "digital": 619990,
   "digital+controle": 719990,
