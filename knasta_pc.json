@@ -1,0 +1,313 @@
+{
+"ofertas": [
+{
+"cartao": 649990,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "digital",
+"fonte": "knasta",
+"id": "knasta:paris#MK208523YL",
+"ids": [
+"mk208523yl"
+],
+"loja": "Paris",
+"loja_key": "paris",
+"minimo_hist": 549990,
+"minimo_hist_dia": "06-10-2026",
+"normal": 689990,
+"preco": 649990,
+"produto": "Consola Sony PS5 PlayStation 5 - Slim (Edición Digital)",
+"url": "https://www.paris.cl/consola-sony-ps5-playstation-5-slim-edicion-digital-MK208523YL.html"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "digital",
+"fonte": "knasta",
+"id": "knasta:lider#00071171902355",
+"ids": [
+"00071171902355"
+],
+"loja": "Lider Electrohogar",
+"loja_key": "lider",
+"minimo_hist": 589990,
+"minimo_hist_dia": "07-10-2026",
+"normal": 669990,
+"preco": 669990,
+"produto": "Consola PlayStation 5 Edición Digital con Astro Bot y Gran Turismo 7",
+"url": "https://www.lider.cl/ip/Consola-PlayStation-5-Edici-n-Digital-con-Astro-Bot-y-Gran-Turismo-7/00071171902355?athbdg=L1800"
+},
+{
+"cartao": 669990,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "digital",
+"fonte": "knasta",
+"id": "knasta:paris#316547999",
+"ids": [
+"316547999"
+],
+"loja": "Paris",
+"loja_key": "paris",
+"minimo_hist": 549990,
+"minimo_hist_dia": "05-10-2026",
+"normal": 699990,
+"preco": 669990,
+"produto": "Consola PS5 Slim Digital 825GB con Astro Bot y Gran Turismo 7",
+"url": "https://www.paris.cl/consola-ps5-slim-digital-825gb-con-astro-bot-y-gran-turismo-7-316547999.html"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "disco",
+"fonte": "knasta",
+"id": "knasta:lider#00071171957089",
+"ids": [
+"00071171957089"
+],
+"loja": "Lider Electrohogar",
+"loja_key": "lider",
+"minimo_hist": 739990,
+"minimo_hist_dia": "26-11-2026",
+"normal": 999990,
+"preco": 999990,
+"produto": "Consola PS5 Slim Standard 1TB + 2 Juegos PS5 Sony",
+"url": "https://www.lider.cl/ip/Consola-PS5-Slim-Standard-1TB-2-Juegos-PS5-Sony/00071171957089"
+},
+{
+"cartao": 679990,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "digital",
+"fonte": "knasta",
+"id": "knasta:falabella#126614389",
+"ids": [
+"126614389"
+],
+"loja": "Falabella",
+"loja_key": "falabella",
+"minimo_hist": 619990,
+"minimo_hist_dia": "31-08-2026",
+"normal": 689990,
+"preco": 679990,
+"produto": "Consola PS5 PlayStation 5 Slim (Edición Digital)",
+"url": "https://www.falabella.com/falabella-cl/product/126614389/Consola-Sony-PS5-PlayStation-5-Slim-(Edicion-Digital)"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "disco",
+"fonte": "knasta",
+"id": "knasta:lider#00071171902395",
+"ids": [
+"00071171902395"
+],
+"loja": "Lider Electrohogar",
+"loja_key": "lider",
+"minimo_hist": 729990,
+"minimo_hist_dia": "12-10-2026",
+"normal": 739990,
+"preco": 739990,
+"produto": "Consola PlayStation 5 Estándar Disco con Astro Bot y Gran Turismo 7",
+"url": "https://www.lider.cl/ip/Consola-PlayStation-5-Est-ndar-Disco-con-Astro-Bot-y-Gran-Turismo-7/00071171902395?athbdg=L1800"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "disco",
+"fonte": "knasta",
+"id": "knasta:lider#00071171957099",
+"ids": [
+"00071171957099"
+],
+"loja": "Lider Electrohogar",
+"loja_key": "lider",
+"minimo_hist": 739990,
+"minimo_hist_dia": "25-11-2026",
+"normal": 749990,
+"preco": 749990,
+"produto": "Consola PS5 Slim 1TB Standard GT7 + Astro Bot",
+"url": "https://www.lider.cl/ip/Consola-PS5-Slim-1TB-Standard-GT7-Astro-Bot/00071171957099?athbdg=L1300"
+},
+{
+"cartao": 699990,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "digital",
+"fonte": "knasta",
+"id": "knasta:falabella#80648266",
+"ids": [
+"20digital",
+"20sony",
+"80648266"
+],
+"loja": "Falabella",
+"loja_key": "falabella",
+"minimo_hist": 599990,
+"minimo_hist_dia": "06-10-2026",
+"normal": 719990,
+"preco": 699990,
+"produto": "Consola PS5 HW Digital GT7 A",
+"url": "https://www.falabella.com/falabella-cl/product/80648266/Consola%20PS5%20HW%20Digital%20GT7%20A%20Sony"
+},
+{
+"cartao": 749990,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "disco",
+"fonte": "knasta",
+"id": "knasta:paris#316545999",
+"ids": [
+"316545999"
+],
+"loja": "Paris",
+"loja_key": "paris",
+"minimo_hist": 699990,
+"minimo_hist_dia": "06-10-2026",
+"normal": 779990,
+"preco": 749990,
+"produto": "Consola PS5 Standard con Astro Bot y Gran Turismo 7",
+"url": "https://www.paris.cl/consola-ps5-standard-con-astro-bot-y-gran-turismo-7-316545999.html"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "digital",
+"fonte": "knasta",
+"id": "knasta:lider#00071171976559",
+"ids": [
+"00071171976559"
+],
+"loja": "Lider Electrohogar",
+"loja_key": "lider",
+"minimo_hist": 82990,
+"minimo_hist_dia": "20-11-2026",
+"normal": 88990,
+"preco": 88990,
+"produto": "Consola de videojuegos PlayStation Gran Turismo 7 PS5 Black",
+"url": "https://www.lider.cl/ip/Consola-de-videojuegos-PlayStation-Gran-Turismo-7-PS5-Black/00071171976559"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "disco",
+"fonte": "knasta",
+"id": "knasta:lider#00071171954852",
+"ids": [
+"00071171954852"
+],
+"loja": "Lider Electrohogar",
+"loja_key": "lider",
+"minimo_hist": 1098990,
+"minimo_hist_dia": "03-11-2026",
+"normal": 1199990,
+"preco": 1199990,
+"produto": "CONSOLA SONY PS5 CON DISCO",
+"url": "https://www.lider.cl/ip/CONSOLA-SONY-PS5-CON-DISCO/00071171954852"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "digital",
+"fonte": "knasta",
+"id": "knasta:lider#00071171957094",
+"ids": [
+"00071171957094"
+],
+"loja": "Lider Electrohogar",
+"loja_key": "lider",
+"minimo_hist": 709990,
+"minimo_hist_dia": "13-10-2026",
+"normal": 779990,
+"preco": 779990,
+"produto": "Consola Playstation 5 Slim Digital 1TB con ASTRO BOT Digital y Gran Turismo 7 Digital Sony",
+"url": "https://www.lider.cl/ip/Consola-Playstation-5-Slim-Digital-1TB-con-ASTRO-BOT-Digital-y-Gran-Turismo-7-Digital-Sony/00071171957094"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "disco",
+"fonte": "knasta",
+"id": "knasta:falabella#80648267",
+"ids": [
+"20sony",
+"20standard",
+"80648267"
+],
+"loja": "Falabella",
+"loja_key": "falabella",
+"minimo_hist": 699990,
+"minimo_hist_dia": "30-08-2026",
+"normal": 779990,
+"preco": 779990,
+"produto": "Consola PS5 HW Standard GT7 1TB",
+"url": "https://www.falabella.com/falabella-cl/product/80648267/Consola%20PS5%20HW%20Standard%20GT7%20Sony"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "disco",
+"fonte": "knasta",
+"id": "knasta:lider#00071171902318",
+"ids": [
+"00071171902318"
+],
+"loja": "Lider Electrohogar",
+"loja_key": "lider",
+"minimo_hist": 956109,
+"minimo_hist_dia": "24-11-2026",
+"normal": 989990,
+"preco": 989990,
+"produto": "Consola Ps5 Slim Disc Edition Ghost Of Yotei 4k 30fps+ 1tb",
+"url": "https://www.lider.cl/ip/Consola-Ps5-Slim-Disc-Edition-Ghost-Of-Yotei-4k-30fps-1tb/00071171902318"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "digital",
+"fonte": "knasta",
+"id": "knasta:pcfactory#54253",
+"ids": [
+"54253"
+],
+"loja": "Pc Factory",
+"loja_key": "pcfactory",
+"minimo_hist": 659990,
+"minimo_hist_dia": "11-10-2026",
+"normal": 699990,
+"preco": 699990,
+"produto": "Consola PlayStation 5 Digital Slim ",
+"url": "https://www.pcfactory.cl/producto/54253-sony-consola-playstation-5-digital-slim"
+},
+{
+"cartao": null,
+"controle": false,
+"dia": "27-11-2026",
+"familia": "disco",
+"fonte": "knasta",
+"id": "knasta:pcfactory#58644",
+"ids": [
+"58644"
+],
+"loja": "Pc Factory",
+"loja_key": "pcfactory",
+"minimo_hist": 799990,
+"minimo_hist_dia": "26-11-2026",
+"normal": 789990,
+"preco": 789990,
+"produto": "Consola PlayStation 5 Disco (E-Chasis) + GT7 + ASTRO",
+"url": "https://www.pcfactory.cl/producto/58644-sony-consola-playstation-5-disco-e-chasis--gt7--astro"
+}
+],
+"quando": "2026-11-27T11:14-03:00"
+}
