@@ -1,7 +1,9 @@
 """Ajudante local: roda o monitor completo no PC (Knasta + páginas das lojas funcionam
 melhor com IP de casa) e avisa a nuvem com um "sinal de vida" para não duplicar alertas.
 
-Se a rede bloquear Telegram ou GitHub, ele NÃO faz nada e a nuvem continua sozinha.
+Se a rede bloquear o Telegram (ex.: rede do trabalho), ele só lê o Knasta e sobe para o GitHub
+(knasta_pc.json); a nuvem, que é bloqueada no Knasta, usa isso e manda as mensagens.
+Se bloquear o GitHub também, ele NÃO faz nada e a nuvem continua sozinha (sem Knasta).
 Chamado pelo Agendador de Tarefas do Windows a cada 5 min (tarefa "MonitorPS5Chile").
 
   python rodar_local.py                 uma rodada
@@ -78,6 +80,38 @@ def testar_rede(token):
     print("\nSe Telegram e GitHub/git estiverem OK, o PC ajuda; se não, a nuvem cuida sozinha (sem problema).")
 
 
+def so_knasta(info_tg):
+    """Rede sem Telegram: o PC lê só o Knasta e manda para a nuvem pelo GitHub."""
+    git("checkout", "--", "state.json")
+    git("checkout", "--", "knasta_pc.json")  # (na 1ª vez ainda não existe no git: erro inofensivo)
+    if git("pull", "--rebase", "--autostash", "-q").returncode != 0:
+        voltar_ao_github()
+        if git("pull", "--rebase", "--autostash", "-q").returncode != 0:
+            voltar_ao_github()
+            log(f"Telegram e GitHub inacessíveis ({info_tg}) — a nuvem cuida sozinha, sem Knasta.")
+            return
+    sys.path.insert(0, AQUI)
+    import monitor  # noqa: E402
+    try:
+        n = monitor.exportar_knasta(json.load(open(monitor.CONFIG, encoding="utf-8")))
+    except BaseException as ex:  # noqa: BLE001
+        log(f"Telegram bloqueado e Knasta falhou no PC ({ex!r:.120}) — a nuvem cuida sem Knasta.")
+        git("checkout", "--", "knasta_pc.json")
+        return
+    git("add", "knasta_pc.json")
+    git("-c", "user.name=monitor-ps5-pc", "-c", "user.email=victormfsilva@users.noreply.github.com",
+        "commit", "-q", "-m", f"knasta (PC) {datetime.now():%H:%M}")
+    for _ in range(2):
+        p = git("push", "-q")
+        if p.returncode == 0:
+            log(f"Telegram bloqueado nesta rede — Knasta lido no PC ({n} ofertas) e enviado à nuvem")
+            return
+        if git("pull", "--rebase", "--autostash", "-q").returncode != 0:
+            break
+    voltar_ao_github()
+    log(f"Knasta lido mas não consegui enviar ({p.stderr.strip()[:120]}) — a nuvem segue sem Knasta")
+
+
 def main():
     seg = json.load(open(SEGREDOS, encoding="utf-8"))
     os.environ["TELEGRAM_TOKEN"], os.environ["TELEGRAM_CHAT_IDS"] = seg["TELEGRAM_TOKEN"], seg["TELEGRAM_CHAT_IDS"]
@@ -87,7 +121,7 @@ def main():
 
     ok, info = alcanca(f"https://api.telegram.org/bot{seg['TELEGRAM_TOKEN']}/getMe")
     if not ok:
-        log(f"Telegram inacessível nesta rede ({info}) — a nuvem cuida.")
+        so_knasta(info)
         return
     git("checkout", "--", "state.json")  # o estado oficial é o do GitHub
     r = git("pull", "--rebase", "--autostash", "-q")

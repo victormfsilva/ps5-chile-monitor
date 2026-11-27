@@ -31,6 +31,8 @@ from datetime import datetime, timedelta, timezone
 AQUI = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(AQUI, "config.json")
 STATE = os.path.join(AQUI, "state.json")
+KNASTA_PC = os.path.join(AQUI, "knasta_pc.json")  # Knasta lido pelo PC quando a rede dele bloqueia o Telegram
+KNASTA_PC_MAX_MIN = 15
 HORA_CHILE = timezone(timedelta(hours=-3))  # horário de verão do Chile (set-abr)
 HORA_RESUMO = 10
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
@@ -243,6 +245,31 @@ def fonte_knasta(cfg):
             pag += 1
             time.sleep(1)
     return saida
+
+
+def exportar_knasta(cfg, agora=None):
+    """PC numa rede sem Telegram: lê o Knasta e grava para a nuvem usar (ela é bloqueada lá)."""
+    agora = agora or datetime.now(HORA_CHILE)
+    ofertas = fonte_knasta(cfg)
+    if not ofertas:
+        raise RuntimeError("nenhum PS5 encontrado no Knasta (formato mudou?)")
+    dados = {"quando": agora.isoformat(timespec="minutes"),
+             "ofertas": [{**o, "ids": sorted(o.get("ids") or [])} for o in ofertas]}
+    with open(KNASTA_PC + ".tmp", "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False, indent=0, sort_keys=True)
+    os.replace(KNASTA_PC + ".tmp", KNASTA_PC)
+    return len(ofertas)
+
+
+def knasta_do_pc(agora):
+    """Ofertas do Knasta que o PC mandou, se forem recentes; senão None."""
+    try:
+        d = json.load(open(KNASTA_PC, encoding="utf-8"))
+        if agora - datetime.fromisoformat(d["quando"]) > timedelta(minutes=KNASTA_PC_MAX_MIN):
+            return None
+        return [{**o, "ids": set(o.get("ids") or [])} for o in d["ofertas"]] or None
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
 def fonte_rata(cfg):
@@ -701,7 +728,14 @@ def main():
         chave = f"{nome}@{onde}"  # contagem separada: Knasta é bloqueado só na nuvem
         avisar = not (nome == "Knasta" and onde == "nuvem")  # bloqueio conhecido: não incomoda
         try:
-            r = fn(cfg)
+            try:
+                r = fn(cfg)
+            except Exception:  # noqa: BLE001
+                via_pc = knasta_do_pc(agora) if (nome == "Knasta" and onde == "nuvem") else None
+                if not via_pc:
+                    raise
+                print(f"Knasta bloqueado aqui — usando {len(via_pc)} ofertas que o PC leu")
+                r, nome = via_pc, "Knasta (via PC)"
             if nome == "Descuentos Rata":
                 posts, cupons = r
             else:
