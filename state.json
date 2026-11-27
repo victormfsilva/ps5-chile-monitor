@@ -1,8 +1,6 @@
 {
  "alertados": {},
- "cupons_vistos": {
-  "cupom:1456": "2027-01-01 00:00"
- },
+ "cupons_vistos": {},
  "enviados": {
   "lider|disco|599990": "2026-11-26T19:10-03:00",
   "paris|digital+controle|719990": "2026-11-26T19:35-03:00"
@@ -12,7 +10,7 @@
   "Descuentos Rata@nuvem": 0,
   "Descuentos Rata@pc": 0,
   "Knasta": 0,
-  "Knasta@nuvem": 13,
+  "Knasta@nuvem": 14,
   "Knasta@pc": 0,
   "SoloTodo": 0,
   "SoloTodo@nuvem": 0,
