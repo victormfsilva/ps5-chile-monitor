@@ -595,7 +595,28 @@ def resumo(melhores, cupons_por_loja, cfg, titulo, saude):
     return "\n".join(partes)
 
 
-def enviar(textos):
+def sinal_de_vida(state, melhores, cfg, agora, onde, saude):
+    """Mensagem silenciosa de 'tudo ok, sem novidades' quando ficou N horas sem nenhuma mensagem."""
+    horas = cfg.get("sinal_de_vida_horas", 2)
+    if not horas:
+        return None
+    ultimo = state.get("ultimo_sinal")
+    if ultimo:
+        try:
+            if agora - datetime.fromisoformat(ultimo) < timedelta(hours=horas) - timedelta(minutes=3):
+                return None
+        except ValueError:
+            pass
+    linhas = [f"✅ Monitor ok — sem novidades nas últimas {horas} h."]
+    for k in ("digital", "disco"):
+        if k in melhores:
+            o = melhores[k]
+            linhas.append(f"{nome_familia(k)}: menor agora {clp(o['preco'])} ({html.escape(o['loja'])})")
+    linhas.append(f"<i>Rodando no {'PC' if onde == 'pc' else 'GitHub (nuvem)'} · {agora:%H:%M} · fontes: {saude}</i>")
+    return "\n".join(linhas)
+
+
+def enviar(textos, silencioso=False):
     token = os.environ.get("TELEGRAM_TOKEN", "").strip()
     chats = [c.strip() for c in os.environ.get("TELEGRAM_CHAT_IDS", "").split(",") if c.strip()]
     if not token or not chats:
@@ -606,7 +627,7 @@ def enviar(textos):
     ok = falhou = 0
     for chat in chats:
         for t in textos:
-            if _enviar_um(token, chat, t):
+            if _enviar_um(token, chat, t, silencioso):
                 ok += 1
             else:
                 falhou += 1
@@ -618,11 +639,13 @@ def enviar(textos):
         print(f"[AVISO] {falhou} mensagem(ns) não foram entregues")
 
 
-def _enviar_um(token, chat, texto):
+def _enviar_um(token, chat, texto, silencioso=False):
     """Uma mensagem; se o HTML for recusado, manda como texto puro; respeita o limite (429)."""
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     tentativas = [{"text": texto[:3900], "parse_mode": "HTML"},
                   {"text": re.sub(r"<[^>]+>", "", html.unescape(texto))[:3900]}]
+    if silencioso:  # chega sem som nem vibração
+        tentativas = [{**t, "disable_notification": "true"} for t in tentativas]
     for i, extra in enumerate(tentativas):
         for _ in range(2):
             dados = urllib.parse.urlencode({"chat_id": chat, "disable_web_page_preview": "true", **extra}).encode()
@@ -721,6 +744,12 @@ def main():
           f"{len(alertas)} alertas, {len(mensagens)} mensagens")
     if mensagens:
         enviar(mensagens)
+        state["ultimo_sinal"] = agora.isoformat(timespec="minutes")
+    else:
+        sinal = sinal_de_vida(state, melhores, cfg, agora, onde, saude)
+        if sinal:
+            enviar([sinal], silencioso=True)
+            state["ultimo_sinal"] = agora.isoformat(timespec="minutes")
     save(state)
 
 

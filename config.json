@@ -10,6 +10,8 @@
   "preco_minimo_valido": 150000,
   "abaixo_disso_pode_ser_erro": 380000,
   "incluir_pro": false,
+  "_sinal_de_vida": "mensagem silenciosa 'sem novidades' depois de N horas sem nenhuma mensagem (0 desliga)",
+  "sinal_de_vida_horas": 2,
   "incluir_usados": false,
   "lojas_cupom": ["Falabella", "Paris", "Ripley", "Lider", "Hites", "PC Factory", "Mercado Libre", "La Polar", "AbcDin", "Abc", "Sony", "Microplay", "Weplay", "SP Digital", "Zmart", "Tottus", "Jumbo", "Easy", "Claro", "Entel"]
 }

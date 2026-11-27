@@ -166,5 +166,16 @@ casos = {
 for t, esp in casos.items():
     checa(f"12 filtro: {t[:45]}", m.classificar_texto(t, CFG) == esp, m.classificar_texto(t, CFG))
 
+# 13) Sinal de vida silencioso: só depois de N horas sem nenhuma mensagem
+mel = {"digital": st(619990, 0.5, sku="d1", fam="digital", loja="Lider"), "disco": st(599990, 0.5)}
+s = {}
+txt = m.sinal_de_vida(s, mel, CFG, AGORA, "nuvem", "SoloTodo")
+checa("13a primeira vez manda", txt is not None and "sem novidades" in txt and "619.990" in txt, txt)
+s = {"ultimo_sinal": (AGORA - timedelta(minutes=40)).isoformat(timespec="minutes")}
+checa("13b 40 min depois: não manda", m.sinal_de_vida(s, mel, CFG, AGORA, "pc", "x") is None)
+s = {"ultimo_sinal": (AGORA - timedelta(hours=2)).isoformat(timespec="minutes")}
+checa("13c 2 h depois: manda", m.sinal_de_vida(s, mel, CFG, AGORA, "pc", "x") is not None)
+checa("13d 0 desliga", m.sinal_de_vida({}, mel, {**CFG, "sinal_de_vida_horas": 0}, AGORA, "pc", "x") is None)
+
 print(f"\n{len(ERROS)} erro(s)")
 sys.exit(1 if ERROS else 0)
