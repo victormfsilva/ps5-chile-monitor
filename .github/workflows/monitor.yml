@@ -2,7 +2,8 @@ name: monitor-ps5-chile
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # a cada 5 min (o GitHub às vezes atrasa alguns minutos)
+    - cron: "*/5 * * * *"    # a cada 5 min (o GitHub às vezes atrasa alguns minutos)
+    - cron: "3-58/10 * * * *" # reserva, fora dos minutos "redondos" (menos fila no GitHub)
   workflow_dispatch:          # botão "Run workflow" para rodar na hora
 
 permissions:
