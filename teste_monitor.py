@@ -38,7 +38,7 @@ def rodada(state, ofertas, pag=([], False), agora=AGORA):
     pagina(pag)
     copia = [dict(o) for o in ofertas]
     alertas, melhores, _ = m.analisar(copia, [], [], CFG, state, agora)
-    return [a.splitlines()[0] for a in alertas], melhores
+    return alertas, melhores  # mensagem inteira (o formato novo usa várias linhas)
 
 
 def checa(nome, cond, extra=""):
@@ -72,7 +72,7 @@ a3, _ = rodada(s, ofs, pag=([609990], True), agora=AGORA + timedelta(minutes=50)
 a4, _ = rodada(s, ofs, pag=([609990], True), agora=AGORA + timedelta(minutes=75))
 a5, _ = rodada(s, ofs, pag=([609990], False), agora=AGORA + timedelta(minutes=100))
 checa("4a alerta inicial", len(a1) == 1 and "VALE A PENA" in a1[0], a1)
-checa("4b esgotou -> 1 encerrada", len(a2) == 1 and "ENCERRADA" in a2[0] and "ESGOTOU" in a2[0], a2)
+checa("4b esgotou -> 1 encerrada", len(a2) == 1 and "ENCERRADA" in a2[0] and "esgotou" in a2[0].lower(), a2)
 checa("4c continua esgotado -> silêncio", a3 == [] and a4 == [], (a3, a4))
 checa("4d reposição -> avisa de novo", len(a5) == 1 and "VALE A PENA" in a5[0], a5)
 
@@ -117,7 +117,7 @@ s = {}
 a, _ = rodada(s, [st(609990, 6, sku="222222", loja="Falabella")])
 checa("10a velho + vale a pena -> nada", a == [], a)
 a, _ = rodada(s, [st(569990, 6, sku="333333", loja="Falabella")])
-checa("10b velho + excelente -> NÃO CONFIRMADO", len(a) == 1 and "NÃO CONFIRMADO" in a[0], a)
+checa("10b velho + excelente -> NÃO CONFIRMADO", len(a) == 1 and "não confirmado" in a[0].lower(), a)
 
 # 11) Telegram: HTML recusado -> manda texto puro; Telegram fora -> erro (não grava estado)
 chamadas = []
@@ -170,7 +170,7 @@ for t, esp in casos.items():
 mel = {"digital": st(619990, 0.5, sku="d1", fam="digital", loja="Lider"), "disco": st(599990, 0.5)}
 s = {}
 txt = m.sinal_de_vida(s, mel, CFG, AGORA, "nuvem", "SoloTodo")
-checa("13a primeira vez manda", txt is not None and "sem novidades" in txt and "619.990" in txt, txt)
+checa("13a primeira vez manda", txt is not None and "nada novo" in txt and "619.990" in txt, txt)
 s = {"ultimo_sinal": (AGORA - timedelta(minutes=40)).isoformat(timespec="minutes")}
 checa("13b 40 min depois: não manda", m.sinal_de_vida(s, mel, CFG, AGORA, "pc", "x") is None)
 s = {"ultimo_sinal": (AGORA - timedelta(hours=2)).isoformat(timespec="minutes")}

@@ -312,32 +312,74 @@ def eh_marketplace(o):
     return "marketplace" in lj or "mercado libre" in lj or "mercadolibre" in lj or o.get("vendedor")
 
 
-def linha(o, cupons_por_loja=None):
-    txt = f"<b>{clp(o['preco']) if o['preco'] else 'preço no post'}</b> · {html.escape(o['loja'])}"
-    if o.get("cartao") and o["cartao"] == o["preco"] and o["normal"] > o["preco"]:
-        txt += f" <i>(com cartão da loja; sem cartão {clp(o['normal'])})</i>"
-    elif o["normal"] > o["preco"]:
-        txt += f" <i>(antes/normal {clp(o['normal'])})</i>"
-    txt += f"\n{html.escape(o['produto'])}"
-    if o.get("minimo_hist"):
-        txt += f"\n📉 menor preço já visto: {clp(o['minimo_hist'])} ({o.get('minimo_hist_dia') or '?'})"
-    cup = o.get("cupom")
-    if isinstance(cup, dict) and cup.get("code"):
-        txt += f"\n🎟️ JÁ COM CUPOM <code>{html.escape(cup['code'])}</code>"
-        if o.get("sem_cupom"):
-            txt += f" (sem cupom {clp(o['sem_cupom'])})"
-    if o.get("com_cupom"):
-        txt += "\n🎟️ oferta COM CUPOM — o código está no post"
-    for c in (cupons_por_loja or {}).get(chave_loja(o["loja"]), [])[:2]:
-        txt += f"\n🎟️ cupom ativo na loja: {html.escape(c['nome'][:90])}" + (f" — código <code>{html.escape(c['codigo'])}</code>" if c.get("codigo") else "")
+FONTES = {"solotodo": "SoloTodo", "knasta": "Knasta", "rata": "Descuentos Rata"}
+
+
+def mil(v):
+    return f"{v / 1000:.0f} mil" if v >= 1000 else clp(v)
+
+
+def distancia(o, cfg):
+    """Quanto o preço está das faixas do config (ex.: '📏 faltam 40 mil para valer a pena')."""
+    if not cfg or not o.get("preco"):
+        return ""
+    bom, otimo = limites(cfg, o["familia"], o["controle"])
+    if bom is None:
+        return ""
+    p = o["preco"]
+    if p <= otimo:
+        return f"📏 {mil(otimo - p)} abaixo da faixa “compra já” ({clp(otimo)})" if otimo > p else "📏 exatamente na faixa “compra já”"
+    if p <= bom:
+        return f"📏 dentro do “vale a pena” · faltam {mil(p - otimo)} para o “compra já”"
+    return f"📏 faltam {mil(p - bom)} para valer a pena ({clp(bom)})"
+
+
+def linha(o, cupons_por_loja=None, cfg=None, produto=True):
+    p, normal = o["preco"], o["normal"]
+    if p:
+        txt = f"💰 <b>{clp(p)}</b>"
+        if normal > p:
+            txt += f"   <s>{clp(normal)}</s>  −{round((1 - p / normal) * 100)}%"
+    else:
+        txt = "💰 <b>preço no post</b>"
+    txt += f"\n🏬 <b>{html.escape(o['loja'])}</b>"
+    if o.get("cartao") and o["cartao"] == p and normal > p:
+        txt += f" · com cartão da loja <i>(sem cartão {clp(normal)})</i>"
     if eh_marketplace(o):
         txt += "\n⚠️ marketplace: confira a reputação do vendedor"
+    d = distancia(o, cfg)
+    if d:
+        txt += f"\n{d}"
+    if o.get("minimo_hist"):
+        dia = (o.get("minimo_hist_dia") or "?").replace("-", "/")
+        txt += f"\n📉 menor preço já visto: {clp(o['minimo_hist'])} ({dia})"
+    cup = o.get("cupom")
+    if isinstance(cup, dict) and cup.get("code"):
+        txt += f"\n🎟️ já com cupom <code>{html.escape(cup['code'])}</code>"
+        if o.get("sem_cupom"):
+            txt += f" <i>(sem cupom {clp(o['sem_cupom'])})</i>"
+    if o.get("com_cupom"):
+        txt += "\n🎟️ oferta com cupom — o código está no post"
+    for c in (cupons_por_loja or {}).get(chave_loja(o["loja"]), [])[:2]:
+        txt += f"\n🎟️ cupom na loja: {html.escape(c['nome'][:80])}" + (f" · <code>{html.escape(c['codigo'])}</code>" if c.get("codigo") else "")
     if o.get("confirmacao"):
         txt += f"\n{o['confirmacao']}"
     elif txt_idade(o):
         txt += f"\n⚠️ não confirmado — {txt_idade(o)}"
-    txt += f"\n<a href=\"{html.escape(o['url'])}\">👉 abrir</a> <i>({o['fonte']})</i>"
+    if produto:
+        txt += f"\n\n<i>{html.escape(curto(o['produto']))}</i>"
+    abrir = "Abrir o post" if o["fonte"] == "rata" else "Abrir oferta"
+    txt += f"\n🛒 <b><a href=\"{html.escape(o['url'])}\">{abrir}</a></b>  <i>· via {FONTES.get(o['fonte'], o['fonte'])}</i>"
     return txt
+
+
+def curto(t, n=110):
+    """Corta nome longo de produto numa palavra inteira, com reticências."""
+    return t if len(t) <= n else t[:n].rsplit(" ", 1)[0].rstrip(" -+(,") + "…"
+
+
+def titulo(emoji, texto, k=None):
+    return f"{emoji} <b>{texto}</b>" + (f" · {nome_familia(k)}" if k else "") + "\n━━━━━━━━━━━━━━"
 
 
 def chave_familia(o):
@@ -509,11 +551,12 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
         pref = f"{chave_loja(o['loja'])}|{chave_familia(o)}|"
         for k in [k for k in enviados if k.startswith(pref)]:
             enviados.pop(k)  # se a oferta voltar de verdade (ex.: reposição), avisa de novo
-        motivo = "ESGOTOU na loja" if o.get("esgotado") else f"agora está <b>{clp(o['preco'])}</b>"
-        alertas.append(f"❌ OFERTA ENCERRADA — {motivo}\n"
-                       f"{html.escape(o['produto'])} · {html.escape(o['loja'])}\n"
-                       f"(o aviso anterior dizia {clp(anterior)}; {o.get('confirmacao') or 'preço atualizado'})\n"
-                       f"<a href=\"{html.escape(o['url'])}\">👉 abrir</a>")
+        agora_txt = "<b>esgotou</b>" if o.get("esgotado") else f"agora <b>{clp(o['preco'])}</b>"
+        alertas.append(f"{titulo('❌', 'OFERTA ENCERRADA', chave_familia(o))}\n"
+                       f"🏬 <b>{html.escape(o['loja'])}</b>: era <s>{clp(anterior)}</s> → {agora_txt}\n"
+                       + (f"{o['confirmacao']}\n" if o.get("confirmacao") else "") +
+                       f"\n<i>{html.escape(curto(o['produto']))}</i>\n"
+                       f"🛒 <a href=\"{html.escape(o['url'])}\">Abrir</a>")
 
     vistos = set()
     ofertas = [o for o in ofertas if o["preco"] >= piso]
@@ -549,16 +592,18 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
             continue  # já avisado antes: não marca de novo (evita "encerrada" repetido)
         alertados[o["id"]] = o["preco"]
         if o["preco"] < erro:
-            nivel = "🚨 POSSÍVEL ERRO DE PREÇO (corre, mas confira se é console novo e loja séria)"
+            emoji, nivel = "🚨", "POSSÍVEL ERRO DE PREÇO"
+            obs = "Corre, mas confira se é console novo e loja séria."
         elif o["preco"] <= otimo:
-            nivel = "🔥 COMPRA JÁ — preço excelente"
+            emoji, nivel, obs = "🔥", "COMPRA JÁ", ""
         else:
-            nivel = "✅ VALE A PENA"
-        if anterior:
-            nivel += f" (caiu de {clp(anterior)})"
+            emoji, nivel, obs = "✅", "VALE A PENA", ""
         if nao_confirmado:
-            nivel = "⚠️ NÃO CONFIRMADO — " + nivel
-        alertas.append(f"{nivel}\n{linha(o, cupons_por_loja)}")
+            nivel += " (não confirmado)"
+        if anterior:
+            obs = (f"⬇️ caiu de {clp(anterior)}. " + obs).strip()
+        alertas.append(f"{titulo(emoji, nivel, chave_familia(o))}\n" + (f"<i>{obs}</i>\n" if obs else "")
+                       + linha(o, cupons_por_loja, cfg))
     verif = state.get("verif", {})
     corte = (agora - timedelta(hours=1)).isoformat(timespec="minutes")
     for k in [k for k, v in verif.items() if v[0] < corte]:
@@ -582,7 +627,8 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
         quer_aviso = k in cfg.get("novo_menor_familias", [k])
         if (quer_aviso and antes is not None and o["preco"] < antes and (bom is None or o["preco"] > bom)
                 and not ja_enviado(o)):
-            alertas.append(f"🔻 NOVO MENOR PREÇO — {nome_familia(k)} (antes {clp(antes)})\n{linha(o, cupons_por_loja)}")
+            alertas.append(f"{titulo('🔻', 'NOVO MENOR PREÇO', k)}\n<i>o menor até agora era {clp(antes)} "
+                           f"(−{mil(antes - o['preco'])})</i>\n{linha(o, cupons_por_loja, cfg)}")
         if antes is None or o["preco"] < antes:
             menores[k] = o["preco"]
 
@@ -591,7 +637,8 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
             continue
         alertados[p["id"]] = p["preco"]
         vistos.add(p["id"])
-        alertas.append(f"📣 OFERTA POSTADA NA COMUNIDADE (Descuentos Rata)\n{linha(p, cupons_por_loja)}")
+        alertas.append(f"{titulo('📣', 'POSTADO NA COMUNIDADE', chave_familia(p))}\n"
+                       f"<i>oferta postada por alguém no Descuentos Rata</i>\n{linha(p, cupons_por_loja, cfg)}")
     for k in [k for k in alertados if k.startswith("rata:") and k not in {p['id'] for p in posts}]:
         alertados.pop(k)
 
@@ -599,9 +646,10 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
         if c["id"] in cupons_vistos:
             continue
         cupons_vistos[c["id"]] = c["fim"]
-        cod = f"\nCódigo: <code>{html.escape(c['codigo'])}</code>" if c.get("codigo") else ""
-        alertas.append(f"🎟️ NOVO CUPOM — {html.escape(c['loja'] or '?')}\n{html.escape(c['nome'])}{cod}\n"
-                       f"válido até {c['fim'] or '?'}\n<a href=\"{html.escape(c['url'])}\">👉 ver cupom</a>")
+        cod = f"\n🔑 código: <code>{html.escape(c['codigo'])}</code> <i>(toque para copiar)</i>" if c.get("codigo") else ""
+        alertas.append(f"🎟️ <b>NOVO CUPOM</b> · {html.escape(c['loja'] or '?')}\n━━━━━━━━━━━━━━\n"
+                       f"<b>{html.escape(c['nome'])}</b>{cod}\n⏳ válido até {data_br(c['fim'])}\n"
+                       f"🔗 <a href=\"{html.escape(c['url'])}\">Ver cupom</a>")
     ativos = {c["id"] for c in cupons}
     for k in [k for k in cupons_vistos if k not in ativos]:
         cupons_vistos.pop(k)
@@ -612,13 +660,20 @@ def analisar(ofertas, posts, cupons, cfg, state, agora):
     return alertas, melhores, cupons_por_loja
 
 
-def resumo(melhores, cupons_por_loja, cfg, titulo, saude):
-    partes = [f"<b>{titulo}</b>"]
+def data_br(fim):
+    """'2027-01-01 00:00' -> '01/01/2027 00:00'."""
+    try:
+        return datetime.strptime(fim, "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H:%M")
+    except (TypeError, ValueError):
+        return fim or "?"
+
+
+def resumo(melhores, cupons_por_loja, cfg, titulo_txt, saude):
+    partes = [f"<b>{titulo_txt}</b>"]
     for k in sorted(melhores):
         o = melhores[k]
-        bom, otimo = limites(cfg, o["familia"], o["controle"])
-        partes.append(f"\n<u>{nome_familia(k)}</u> — vale a pena ≤ {clp(bom)} · compra já ≤ {clp(otimo)}\n{linha(o, cupons_por_loja)}")
-    partes.append(f"\n<i>Fontes: {saude}. Confira o total no carrinho antes de pagar.</i>")
+        partes.append(f"\n━━━━━━━━━━━━━━\n🎮 <b>{nome_familia(k)}</b>\n{linha(o, cupons_por_loja, cfg)}")
+    partes.append(f"\n━━━━━━━━━━━━━━\n<i>Fontes: {saude}. Confira o total no carrinho antes de pagar.</i>")
     return "\n".join(partes)
 
 
@@ -634,12 +689,17 @@ def sinal_de_vida(state, melhores, cfg, agora, onde, saude):
                 return None
         except ValueError:
             pass
-    linhas = [f"✅ Monitor ok — sem novidades nas últimas {horas} h."]
-    for k in ("digital", "disco"):
+    periodo = "na última hora" if horas == 1 else f"nas últimas {horas} h"
+    linhas = [f"✅ <b>Tudo certo</b> — nada novo {periodo}", ""]
+    for k, emoji, nome in (("digital", "🎮", "Digital"), ("disco", "💿", "Com disco")):
         if k in melhores:
             o = melhores[k]
-            linhas.append(f"{nome_familia(k)}: menor agora {clp(o['preco'])} ({html.escape(o['loja'])})")
-    linhas.append(f"<i>Rodando no {'PC' if onde == 'pc' else 'GitHub (nuvem)'} · {agora:%H:%M} · fontes: {saude}</i>")
+            linhas.append(f"{emoji} <b>{nome}</b>: {clp(o['preco'])} · {html.escape(o['loja'])}")
+            d = distancia(o, cfg).replace("📏 ", "")
+            if d:
+                linhas.append(f"      <i>{d}</i>")
+    lugar = "🖥️ PC" if onde == "pc" else "☁️ nuvem"
+    linhas += ["", f"<i>{lugar} · {agora:%H:%M} · {saude}</i>"]
     return "\n".join(linhas)
 
 
@@ -770,7 +830,7 @@ def main():
         mensagens.insert(0, resumo(melhores, cupons_por_loja, cfg, "🎮 Monitor de PS5 no Chile LIGADO! Melhores preços agora:", saude))
         state["ultimo_resumo"] = hoje
     elif "--resumo" in sys.argv or (state.get("ultimo_resumo") != hoje and agora.hour >= HORA_RESUMO):
-        mensagens.insert(0, resumo(melhores, cupons_por_loja, cfg, f"☀️ Resumo {agora:%d/%m} — melhores preços de PS5", saude))
+        mensagens.insert(0, resumo(melhores, cupons_por_loja, cfg, f"☀️ Resumo de {agora:%d/%m} — melhores preços de PS5", saude))
         state["ultimo_resumo"] = hoje
     mensagens += alertas
 
