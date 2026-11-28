@@ -1,15 +1,13 @@
 {
  "alertados": {},
  "cupons_vistos": {},
- "enviados": {
-  "paris|digital+controle|719990": "2026-11-26T19:35-03:00"
- },
+ "enviados": {},
  "falhas": {
   "Descuentos Rata": 0,
   "Descuentos Rata@nuvem": 0,
   "Descuentos Rata@pc": 0,
   "Knasta": 0,
-  "Knasta@nuvem": 1,
+  "Knasta@nuvem": 2,
   "Knasta@pc": 0,
   "SoloTodo": 0,
   "SoloTodo@nuvem": 0,
