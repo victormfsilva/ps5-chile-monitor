@@ -1,6 +1,8 @@
 {
  "alertados": {},
- "cupons_vistos": {},
+ "cupons_vistos": {
+  "cupom:1456": "2027-01-01 00:00"
+ },
  "enviados": {
   "lider|disco|599990": "2026-11-26T19:10-03:00",
   "paris|digital+controle|719990": "2026-11-26T19:35-03:00"
@@ -16,7 +18,7 @@
   "SoloTodo@nuvem": 0,
   "SoloTodo@pc": 0
  },
- "heartbeat_local": "2026-11-27T20:44-03:00",
+ "heartbeat_local": "2026-11-27T21:15-03:00",
  "menor_por_familia": {
   "digital": 619990,
   "digital+controle": 719990,
@@ -24,6 +26,6 @@
   "disco+controle": 797019
  },
  "ultimo_resumo": "2026-11-27",
- "ultimo_sinal": "2026-11-27T21:00-03:00",
+ "ultimo_sinal": "2026-11-27T21:14-03:00",
  "verif": {}
 }
